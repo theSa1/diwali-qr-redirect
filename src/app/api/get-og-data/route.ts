@@ -1,6 +1,33 @@
 import { isAuthenticated } from "@/lib/is-authenticated";
 import { NextRequest, NextResponse } from "next/server";
-import ogs from "open-graph-scraper";
+
+const getMetadata = async (url: string) => {
+  const res = await fetch(
+    "https://jsonlink.io/api/extract?url=" +
+      encodeURIComponent(url) +
+      "&api_key=" +
+      process.env.JSONLINK_API_KEY
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch metadata");
+  }
+
+  const data = (await res.json()) as {
+    title: string;
+    images: string[];
+    sitename: string;
+    favicon: string;
+    domain: string;
+  };
+
+  console.log(data);
+
+  return {
+    title: data.title || "",
+    ogImage: data.images && data.images.length > 0 ? data.images[0] : "",
+  };
+};
 
 export const GET = async (req: NextRequest) => {
   if (!(await isAuthenticated())) {
@@ -17,13 +44,11 @@ export const GET = async (req: NextRequest) => {
   }
 
   try {
-    const ogData = await ogs({ url });
+    const ogData = await getMetadata(url);
+
     return NextResponse.json({
-      title: ogData.result.ogTitle || "",
-      ogImage:
-        ogData.result.ogImage && ogData.result.ogImage.length > 0
-          ? ogData.result.ogImage[0].url || ""
-          : "",
+      title: ogData.title,
+      ogImage: ogData.ogImage,
     });
   } catch (error) {
     console.error("Error fetching OG data:", error);
